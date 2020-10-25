@@ -60,17 +60,11 @@ class Ostream:
         ###
         return None
 
-    def canSendData(self):
-        ###
-        ### IMPLEMENT
-        ###
-        pass
-
     def canSendNewData(self):
-        ###
-        ### IMPLEMENT
-        ###
-        pass
+        inFlight = (self.seqNum - self.base) % MAX_SEQNO
+        if (inFlight < len(self.buf)):
+            return False
+        return self.state == State.OPEN and (self.cc.cwnd - inFlight) >= MTU
 
     def __str__(self):
         return f"state:{self.state} base:{self.base} seqNum:{self.seqNum} nSentData:{len(self.buf)} cc:{self.cc}"

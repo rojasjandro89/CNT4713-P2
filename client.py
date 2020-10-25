@@ -37,9 +37,6 @@ while True:
         # Process incoming packet
         conn.on_receive(inPacket)
 
-        # Process any retransmissions
-        conn.process_retransmissions()
-
     except socket.error as e:
         # this is the source of timeouts
         isError = conn.on_timeout()

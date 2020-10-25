@@ -41,14 +41,6 @@ class Socket:
         ### IMPLEMENT
         ###
 
-    def process_retransmissions(self):
-
-        ###
-        ### IMPLEMENT
-        ###
-
-        pass
-
     def on_timeout(self):
         '''Called every 0.5 seconds if nothing received'''
 
