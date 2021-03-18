@@ -18,7 +18,7 @@ class State(Enum):
     ERROR = 21
 
 class Ostream:
-    def __init__(self, base = 12345, isOpening = True):
+    def __init__(self, base = 42, isOpening = True):
         self.base = base
         self.seqNum = base
         self.lastAckTime = time.time() # last time ACK was sent / activity timer
@@ -30,17 +30,30 @@ class Ostream:
     def ack(self, ackNo, connId):
         if self.state == State.INVALID:
             return None
-
+        self.lastAckTime = time.time()
+        if self.state == State.FIN_WAIT:
+            return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
+        else:
+            self.seqNum += 1
+            return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
         ###
         ### IMPLEMENT
         ###
         pass
 
     def makeNextPacket(self, connId, payload, isSyn=False, isFin=False, **kwargs):
+        if isSyn:
+            self.state = State.SYN
+            self.cc.cwnd = 1024
+            self.cc.ssthresh = 15000
+        if isFin:
+            self.state = State.FIN
+        packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
+
         ###
         ### IMPLEMENT
         ###
-        pass
+        return packet
 
     def hasBufferedData(self):
         ###

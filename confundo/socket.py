@@ -17,6 +17,7 @@ class Socket:
         self.sock.settimeout(0.5)
         self.istream = None
         self.ostream = None
+        self.finWaiting = None
 
     def format_line(self, command, pkt):
         s = f"{command} {pkt.seqNum} {pkt.ackNum} {pkt.connId} {int(self.ostream.cc.cwnd)} {self.ostream.cc.ssthresh}"
@@ -36,14 +37,32 @@ class Socket:
         '''Method that dispatches the received packet'''
         pkt = Packet().decode(buf)
         print(self.format_line("RECV", pkt))
+        
+        self.connId = pkt.connId
 
+        if pkt.isSyn and pkt.isAck:
+            ack_packet = self.ostream.ack(ackNo=pkt.ackNum, connId=self.connId)
+            self._send(ack_packet)
+            self.ostream.state = State.OPEN
+        elif pkt.isAck:
+            self.ostream.seqNum = pkt.ackNum
+            if self.ostream.state == State.CLOSED:
+                self.ostream.state = State.OPEN
+            elif self.ostream.state == State.FIN:
+                self.finWaiting = time.time()
+                self.ostream.state = State.FIN_WAIT
+        elif pkt.isFin:
+            ack_packet = self.ostream.ack(ackNo=pkt.seqNum + 1, connId=self.connId)
+            self._send(ack_packet)
         ###
         ### IMPLEMENT
         ###
 
     def on_timeout(self):
         '''Called every 0.5 seconds if nothing received'''
-
+        if self.ostream.state == State.FIN_WAIT and (time.time() - self.finWaiting) >= 2:
+            sys.exit(0)
+        
         ###
         ### IMPLEMENT
         ###
@@ -57,12 +76,13 @@ class Socket:
         pkt = self.ostream.makeNextPacket(connId=0, payload=b"", isSyn=True)
         self._send(pkt)
 
-    def canSendData(self):
+    def canSendData(self): 
         return self.ostream.canSendNewData()
 
     def send(self, payload):
         pkt = self.ostream.makeNextPacket(self.connId, payload)
         self._send(pkt)
+        self.ostream.state = State.CLOSED
 
     def close(self):
         pkt = self.ostream.makeNextPacket(self.connId, payload=b"", isFin=True)

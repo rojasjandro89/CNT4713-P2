@@ -4,3 +4,4 @@
 
 from .common import *
 from .socket import Socket
+from .header import Header
