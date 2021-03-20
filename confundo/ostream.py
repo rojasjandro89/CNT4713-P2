@@ -38,7 +38,7 @@ class Ostream:
         if self.state == State.FIN_WAIT:
             return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
         else:
-            advanceSeqNum(1)
+            self.advanceSeqNum(1)
             return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
         ###
         ### IMPLEMENT
@@ -53,7 +53,7 @@ class Ostream:
         if isFin:
             self.state = State.FIN
         else:
-            advanceSeqNum(len(payload))
+            self.advanceSeqNum(len(payload))
         packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
 
         ###
