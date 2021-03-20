@@ -18,37 +18,47 @@ class State(Enum):
     ERROR = 21
 
 class Ostream:
-    def __init__(self, base = 42, isOpening = True):
+    def __init__(self, base = 12345, isOpening = True):
         self.base = base
         self.seqNum = base
         self.lastAckTime = time.time() # last time ACK was sent / activity timer
         self.cc = CwndControl()
         self.buf = b""
         self.state = State.INVALID
+        self.firstPacketSent = False
         self.nDupAcks = 0
 
     def ack(self, ackNo, connId):
         if self.state == State.INVALID:
             return None
         self.lastAckTime = time.time()
-        if self.state == State.FIN_WAIT:
-            return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
-        else:
-            self.seqNum += 1
-            return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
+        # if self.state == State.FIN_WAIT:
+        #     return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
+        # else:
+        #     self.seqNum += 1
+        #     return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
         ###
         ### IMPLEMENT
         ###
         pass
 
-    def makeNextPacket(self, connId, payload, isSyn=False, isFin=False, **kwargs):
+    def makeNextPacket(self, connId, payload, isSyn=False, isFin=False, isAck=False, **kwargs):
+        ackNum = 0
         if isSyn:
+            self.base = 42
+            self.seqNum = 42
             self.state = State.SYN
             self.cc.cwnd = 1024
             self.cc.ssthresh = 15000
-        if isFin:
+        elif isFin:
             self.state = State.FIN
-        packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
+        elif not self.firstPacketSent or isAck:
+            isAck = True
+            self.seqNum += 1
+            ackNum = self.seqNum
+        else:
+            self.seqNum += len(payload)
+        packet = Packet(payload, False, seqNum=self.seqNum, ackNum=ackNum, connId=connId, isAck=isAck, isSyn=isSyn, isFin=isFin)
 
         ###
         ### IMPLEMENT
@@ -77,7 +87,7 @@ class Ostream:
         inFlight = (self.seqNum - self.base) % MAX_SEQNO
         if (inFlight < len(self.buf)):
             return False
-        return self.state == State.OPEN and (self.cc.cwnd - inFlight) >= MTU
+        return self.state == State.OPEN
 
     def __str__(self):
         return f"state:{self.state} base:{self.base} seqNum:{self.seqNum} nSentData:{len(self.buf)} cc:{self.cc}"

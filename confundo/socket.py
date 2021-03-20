@@ -31,6 +31,10 @@ class Socket:
         '''"Private" method to send packet out'''
 
         self.sock.sendto(packet.encode(), self.remote)
+        if self.ostream.state == State.OPEN:
+            self.ostream.state = State.CLOSED
+        if len(packet.payload) > len(b""):            
+            self.ostream.firstPacketSent = True
         print(self.format_line("SEND", packet))
 
     def on_receive(self, buf):
@@ -40,20 +44,29 @@ class Socket:
         
         self.connId = pkt.connId
 
-        if pkt.isSyn and pkt.isAck:
-            ack_packet = self.ostream.ack(ackNo=pkt.ackNum, connId=self.connId)
-            self._send(ack_packet)
-            self.ostream.state = State.OPEN
-        elif pkt.isAck:
-            self.ostream.seqNum = pkt.ackNum
-            if self.ostream.state == State.CLOSED:
-                self.ostream.state = State.OPEN
-            elif self.ostream.state == State.FIN:
+        if pkt.isAck:            
+            if self.ostream.state == State.FIN:
+                print(f"Got an ACK with FIN")
                 self.finWaiting = time.time()
                 self.ostream.state = State.FIN_WAIT
-        elif pkt.isFin:
-            ack_packet = self.ostream.ack(ackNo=pkt.seqNum + 1, connId=self.connId)
-            self._send(ack_packet)
+            if self.ostream.state == State.CLOSED:
+                self.ostream.state = State.OPEN
+        
+
+        # if pkt.isSyn and pkt.isAck:
+        #     ack_packet = self.ostream.ack(ackNo=pkt.ackNum, connId=self.connId)
+        #     self._send(ack_packet)
+        #     self.ostream.state = State.OPEN
+        # elif pkt.isAck:
+        #     self.ostream.seqNum = pkt.ackNum
+        #     if self.ostream.state == State.CLOSED:
+        #         self.ostream.state = State.OPEN
+        #     elif self.ostream.state == State.FIN:
+        #         self.finWaiting = time.time()
+        #         self.ostream.state = State.FIN_WAIT
+        # elif pkt.isFin:
+        #     ack_packet = self.ostream.ack(ackNo=pkt.seqNum + 1, connId=self.connId)
+        #     self._send(ack_packet)
         ###
         ### IMPLEMENT
         ###
