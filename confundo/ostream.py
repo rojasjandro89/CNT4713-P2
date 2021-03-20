@@ -27,6 +27,10 @@ class Ostream:
         self.state = State.INVALID
         self.nDupAcks = 0
 
+    def advanceSeqNum(self, by):
+        newSeqNum = self.seqNum + by
+        self.seqNum = newSeqNum if newSeqNum <= MAX_SEQNO else newSeqNum - MAX_SEQNO
+
     def ack(self, ackNo, connId):
         if self.state == State.INVALID:
             return None
@@ -34,7 +38,7 @@ class Ostream:
         if self.state == State.FIN_WAIT:
             return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
         else:
-            self.seqNum += 1
+            advanceSeqNum(1)
             return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
         ###
         ### IMPLEMENT
@@ -49,7 +53,7 @@ class Ostream:
         if isFin:
             self.state = State.FIN
         else:
-            self.seqNum += len(payload)
+            advanceSeqNum(len(payload))
         packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
 
         ###
