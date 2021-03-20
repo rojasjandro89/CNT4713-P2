@@ -61,6 +61,7 @@ class Socket:
     def on_timeout(self):
         '''Called every 0.5 seconds if nothing received'''
         if self.ostream.state == State.FIN_WAIT and (time.time() - self.finWaiting) >= 2:
+            print(f"Closing manually")
             sys.exit(0)
         
         ###

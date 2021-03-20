@@ -48,6 +48,8 @@ class Ostream:
             self.cc.ssthresh = 15000
         if isFin:
             self.state = State.FIN
+        else:
+            self.seqNum += len(payload)
         packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
 
         ###
