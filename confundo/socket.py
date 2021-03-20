@@ -33,40 +33,35 @@ class Socket:
         self.sock.sendto(packet.encode(), self.remote)
         print(self.format_line("SEND", packet))
 
-    def on_receive(self, buf):
+    def on_receive(self, buf, file):
         '''Method that dispatches the received packet'''
         pkt = Packet().decode(buf)
-        print(self.format_line("RECV", pkt))
+        print(self.format_line("RECV", pkt)) #+ f" | {self.ostream.state}"
         
         self.connId = pkt.connId
 
-        if pkt.isSyn and pkt.isAck:
-            ack_packet = self.ostream.ack(ackNo=pkt.ackNum, connId=self.connId)
-            self._send(ack_packet)
-            self.ostream.state = State.OPEN
+        if pkt.isSyn:
+            payload = file.read(MTU)
+            ack_pkt = self.ostream.ack(pkt.seqNum+1, self.connId, payload)
+            self.ostream.state = State.CLOSED
+            self._send(ack_pkt)            
         elif pkt.isAck:
-            self.ostream.seqNum = pkt.ackNum
             if self.ostream.state == State.CLOSED:
                 self.ostream.state = State.OPEN
             elif self.ostream.state == State.FIN:
                 self.finWaiting = time.time()
                 self.ostream.state = State.FIN_WAIT
         elif pkt.isFin:
-            ack_packet = self.ostream.ack(ackNo=pkt.seqNum + 1, connId=self.connId)
-            self._send(ack_packet)
-        ###
-        ### IMPLEMENT
-        ###
+            fin_ack_pkt = self.ostream.ack(pkt.seqNum+1, self.connId)
+            self._send(fin_ack_pkt)
+
+        if not ((pkt.isSyn and pkt.isAck) or self.ostream.state == State.FIN or self.ostream.state == State.FIN_WAIT):
+            self.ostream.state = State.OPEN
 
     def on_timeout(self):
         '''Called every 0.5 seconds if nothing received'''
-        if self.ostream.state == State.FIN_WAIT and (time.time() - self.finWaiting) >= 2:
-            print(f"Closing manually")
+        if self.ostream.state == State.FIN_WAIT and (time.time() - self.finWaiting) >= FIN_WAIT_TIME:
             sys.exit(0)
-        
-        ###
-        ### IMPLEMENT
-        ###
 
         return False
 
@@ -82,8 +77,9 @@ class Socket:
 
     def send(self, payload):
         pkt = self.ostream.makeNextPacket(self.connId, payload)
-        self._send(pkt)
-        self.ostream.state = State.CLOSED
+        if not (pkt.isSyn or pkt.isFin):
+            self.ostream.state = State.CLOSED
+        self._send(pkt)        
 
     def close(self):
         pkt = self.ostream.makeNextPacket(self.connId, payload=b"", isFin=True)

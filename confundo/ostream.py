@@ -26,40 +26,29 @@ class Ostream:
         self.buf = b""
         self.state = State.INVALID
         self.nDupAcks = 0
-
+    
     def advanceSeqNum(self, by):
-        newSeqNum = self.seqNum + by
-        self.seqNum = newSeqNum if newSeqNum <= MAX_SEQNO else newSeqNum - MAX_SEQNO
+        if self.seqNum + by >= MAX_SEQNO:
+            self.seqNum = self.base
+        self.seqNum += by
 
-    def ack(self, ackNo, connId):
+    def ack(self, ackNo, connId, payload=b''):
         if self.state == State.INVALID:
             return None
-        self.lastAckTime = time.time()
-        if self.state == State.FIN_WAIT:
-            return Packet(b"", False, seqNum=self.seqNum, ackNum=ackNo, connId=connId, isAck=True, isSyn=False, isFin=False)
-        else:
-            self.advanceSeqNum(1)
-            return Packet(b"", False, seqNum=ackNo, ackNum=self.seqNum, connId=connId, isAck=True, isSyn=False, isFin=False)
-        ###
-        ### IMPLEMENT
-        ###
-        pass
+        return self.makeNextPacket(connId, payload, isAck=True, ackNum=ackNo)
 
-    def makeNextPacket(self, connId, payload, isSyn=False, isFin=False, **kwargs):
+
+    def makeNextPacket(self, connId, payload, isSyn=False, isFin=False, isAck=False, ackNum=0, **kwargs):
         if isSyn:
             self.state = State.SYN
-            self.cc.cwnd = 1024
-            self.cc.ssthresh = 15000
         if isFin:
             self.state = State.FIN
-        else:
-            self.advanceSeqNum(len(payload))
-        packet = Packet(payload, False, seqNum=self.seqNum, connId=connId, isSyn=isSyn, isFin=isFin)
-
-        ###
-        ### IMPLEMENT
-        ###
-        return packet
+        if isAck:
+            self.advanceSeqNum(1)
+        
+        pkt = Packet(payload, False, seqNum=self.seqNum, ackNum=ackNum, connId=connId, isAck=isAck, isSyn=isSyn, isFin=isFin)
+        self.advanceSeqNum(len(payload))
+        return pkt
 
     def hasBufferedData(self):
         ###
@@ -83,7 +72,10 @@ class Ostream:
         inFlight = (self.seqNum - self.base) % MAX_SEQNO
         if (inFlight < len(self.buf)):
             return False
-        return self.state == State.OPEN and (self.cc.cwnd - inFlight) >= MTU
+        canSend = self.state == State.OPEN #and (self.cc.cwnd - inFlight) >= MTU
+        #if not canSend:
+            #print(f"...")
+        return canSend
 
     def __str__(self):
         return f"state:{self.state} base:{self.base} seqNum:{self.seqNum} nSentData:{len(self.buf)} cc:{self.cc}"

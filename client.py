@@ -35,7 +35,7 @@ while True:
         # Note in the above, parameter to .recvfrom should be at least MTU+12 (524), but can be anything else larger if we are willing to accept larger packets
 
         # Process incoming packet
-        conn.on_receive(inPacket)
+        conn.on_receive(inPacket, file)
 
     except socket.error as e:
         # this is the source of timeouts
