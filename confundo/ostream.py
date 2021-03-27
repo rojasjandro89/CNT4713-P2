@@ -26,11 +26,10 @@ class Ostream:
         self.buf = b""
         self.state = State.INVALID
         self.nDupAcks = 0
-    
-    def advanceSeqNum(self, by):
-        if self.seqNum + by >= MAX_SEQNO:
-            self.seqNum = self.base
-        self.seqNum += by
+
+    def safelyWrapSeqNum(self):
+        if self.seqNum > MAX_SEQNO:
+            self.seqNum -= (MAX_SEQNO + 1)
 
     def ack(self, ackNo, connId, payload=b''):
         if self.state == State.INVALID:
@@ -44,10 +43,12 @@ class Ostream:
         if isFin:
             self.state = State.FIN
         if isAck:
-            self.advanceSeqNum(1)
-        
+            self.seqNum += 1
+            
+        self.safelyWrapSeqNum()
         pkt = Packet(payload, False, seqNum=self.seqNum, ackNum=ackNum, connId=connId, isAck=isAck, isSyn=isSyn, isFin=isFin)
-        self.advanceSeqNum(len(payload))
+        self.seqNum += len(payload)
+
         return pkt
 
     def hasBufferedData(self):
