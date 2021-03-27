@@ -46,6 +46,7 @@ class Socket:
             self.ostream.state = State.CLOSED
             self._send(ack_pkt)            
         elif pkt.isAck:
+            self.ostream.lastAckTime = time.time()
             if self.ostream.state == State.CLOSED:
                 self.ostream.state = State.OPEN
             elif self.ostream.state == State.FIN:
@@ -60,8 +61,11 @@ class Socket:
 
     def on_timeout(self):
         '''Called every 0.5 seconds if nothing received'''
-        if self.ostream.state == State.FIN_WAIT and (time.time() - self.finWaiting) >= FIN_WAIT_TIME:
-            sys.exit(0)
+        now = time.time()
+        if self.ostream.state == State.FIN_WAIT and (now - self.finWaiting) >= FIN_WAIT_TIME:
+            sys.exit(1)
+        if (now - self.ostream.lastAckTime) >= GLOBAL_TIMEOUT:
+            return True
 
         return False
 
